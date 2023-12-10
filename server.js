@@ -1,6 +1,7 @@
 const express = require('express');
 const expressWs = require('express-ws');
 const http = require('http');
+const WebSocket = require('ws');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,6 +12,24 @@ const clients = [];
 function sendConsoleMessage(message) {
   clients.forEach(({ ws }) => {
     ws.send(JSON.stringify({ type: 'console_message', text: message }));  
+  });
+}
+
+function sendOnlineClients() {
+  const onlineClients = clients.map((client) => {
+    return {
+      id: client.userData.id,
+      name: client.userData.name,
+    };
+  });
+
+  const message = JSON.stringify({ type: 'online_clients', clients: onlineClients });
+
+  // Broadcast the list to all connected admins
+  clients.forEach(({ ws }) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(message);
+    }
   });
 }
 
@@ -30,6 +49,9 @@ app.ws('/', (ws, req) => {
   const connectionMessage = `Новый клиент подключен. ID: ${userData.id}, IP: ${ip}, User-Agent: ${userAgent}, Время: ${getCurrentDateTime()}`;
   console.log(connectionMessage);
   sendConsoleMessage(connectionMessage);
+
+  // Send the list of online clients to the new client
+  sendOnlineClients();
 
   ws.on('message', (message) => {
     console.log(`Получено сообщение от клиента ID ${userData.id}: ${message}`);
@@ -53,6 +75,9 @@ app.ws('/', (ws, req) => {
     console.log(`Клиент отключен. ID: ${userData.id}, Время: ${getCurrentDateTime()}`);
     sendConsoleMessage(`Клиент отключен. ID: ${userData.id}, Время: ${getCurrentDateTime()}`);
     removeClient(ws, userData.id, false);
+
+    // Send the updated list of online clients to admin when a client disconnects
+    sendOnlineClients();
   });
 });
 
@@ -72,25 +97,25 @@ function sendAdminMessage(targetUserId, message, adminSenderId) {
   if (targetUserId === '' || targetUserId === null) {
     // Send the message to all users
     clients.forEach(({ ws }) => {
-      const notificationMessage = {
+      const adminMessage = {
         type: 'admin_message',
         text: message,
         adminSenderId,
       };
-      ws.send(JSON.stringify(notificationMessage));
+      ws.send(JSON.stringify(adminMessage));
     });
     console.log(`Администратор отправил сообщение всем пользователям: ${message}`);
   } else {
     const targetClient = clients.find((client) => client.userData.id === targetUserId);
 
     if (targetClient) {
-      const notificationMessage = {
+      const adminMessage = {
         type: 'admin_message',
         text: message,
         adminSenderId,
       };
 
-      targetClient.ws.send(JSON.stringify(notificationMessage));
+      targetClient.ws.send(JSON.stringify(adminMessage));
       console.log(`Администратор отправил сообщение пользователю ID ${targetUserId}: ${message}`);
     } else {
       console.log(`Пользователь с ID ${targetUserId} не найден.`);
@@ -106,7 +131,7 @@ function removeClient(ws, clientId, isExpected = true) {
     console.log(`Клиент отключен. ID: ${userData.id}, Имя: ${userData.name}, Время: ${getCurrentDateTime()}`);
 
     if (isExpected) {
-      sendNotificationToAll(`Клиент отключен. ID: ${userData.id}`);
+      sendNotificationToAll(`Клиент отключен. ID: ${userData.id}`, userData.id);
     }
   }
 }
@@ -123,10 +148,8 @@ function generateUserId() {
 }
 
 function isMessageFromAdmin(message) {
-  if (typeof message === 'string') {
-    return message.startsWith('/admin:');
-  }
-  return false;
+  const parsedCommand = parseAdminCommand(message).command;
+  return typeof parsedCommand === 'string' && parsedCommand.toLowerCase() === '/admin';
 }
 
 function parseAdminCommand(message) {
