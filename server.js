@@ -20,6 +20,7 @@ function sendOnlineClients() {
     return {
       id: client.userData.id,
       name: client.userData.name,
+      userAgent: client.userData.userAgent,
     };
   });
 
@@ -37,16 +38,19 @@ app.ws('/', (ws, req) => {
   const ip = req.connection.remoteAddress;
   const userAgent = req.headers['user-agent'];
 
+  // Extract name from the URL query parameters
+  const { name } = req.query;
+
   const userData = {
     id: generateUserId(),
-    name: 'Новый пользователь',
+    name: name || 'Новый пользователь',
     ip,
     userAgent,
   };
 
   clients.push({ ws, userData });
 
-  const connectionMessage = `Новый клиент подключен. ID: ${userData.id}, IP: ${ip}, User-Agent: ${userAgent}, Время: ${getCurrentDateTime()}`;
+  const connectionMessage = `Новый клиент подключен. ID: ${userData.id}, Имя: ${userData.name}, IP: ${ip}, User-Agent: ${userAgent}, Время: ${getCurrentDateTime()}`;
   console.log(connectionMessage);
   sendConsoleMessage(connectionMessage);
 
@@ -72,8 +76,8 @@ app.ws('/', (ws, req) => {
   });
 
   ws.on('close', () => {
-    console.log(`Клиент отключен. ID: ${userData.id}, Время: ${getCurrentDateTime()}`);
-    sendConsoleMessage(`Клиент отключен. ID: ${userData.id}, Время: ${getCurrentDateTime()}`);
+    console.log(`Клиент отключен. ID: ${userData.id}, Имя: ${userData.name}, Время: ${getCurrentDateTime()}`);
+    sendConsoleMessage(`Клиент отключен. ID: ${userData.id}, Имя: ${userData.name}, Время: ${getCurrentDateTime()}`);
     removeClient(ws, userData.id, false);
 
     // Send the updated list of online clients to admin when a client disconnects
@@ -149,7 +153,7 @@ function generateUserId() {
 
 function isMessageFromAdmin(message) {
   const parsedCommand = parseAdminCommand(message).command;
-  return typeof parsedCommand === 'string' && parsedCommand.toLowerCase() === '/admin';
+  return typeof parsedCommand === 'string' && parsedCommand.toLowerCase() === '/admin_message';
 }
 
 function parseAdminCommand(message) {
